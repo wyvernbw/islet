@@ -88,6 +88,7 @@ extension NSRect {
 enum AppSizeStateEvent {
     case hovered
     case unhovered
+    case clicked
 }
 
 enum Information {
@@ -99,24 +100,71 @@ enum AppSizeState {
     case idle(
         info: [Information]
     )
-    case hover
+    case hiddenHover
+    case hover(
+        info: [Information]
+    )
+    case open(
+        info: [Information]
+    )
+    case openHovered(
+        info: [Information]
+    )
 
     func reduce(event: AppSizeStateEvent) -> AppSizeState {
         switch (self, event) {
-        case (.idle, .hovered):
-            return .hover
+        // idle
+        case (.idle(let info), .hovered):
+            return .hover(info: info)
+        case (.idle(let info), .clicked):
+            return .openHovered(info: info)
+        case (.idle, .unhovered):
+            return self
+        // hover
         case (.hover, .unhovered):
             let info = getInfo()
             if info.isEmpty {
                 return .hidden
             }
             return .idle(info: info)
-        case (_, .unhovered):
-            fatalError("unreachable")
-        case (.hidden, .hovered):
-            return .hover
+        case (.hover(let info), .clicked):
+            return .openHovered(info: info)
         case (.hover, .hovered):
-            fatalError("unreachable")
+            return self
+        // hidden
+        case (.hidden, .hovered):
+            return .hiddenHover
+        case (.hidden, .clicked):
+            return .openHovered(info: [])
+        case (.hidden, .unhovered):
+            return self
+        // open
+        case (.open(let info), .hovered):
+            return .openHovered(info: info)
+        case (.open, .unhovered):
+            return self
+        case (.open(let info), .clicked):
+            if info.isEmpty {
+                return .hidden
+            }
+            return .idle(info: info)
+        // hiddenHover
+        case (.hiddenHover, .unhovered):
+            return .hidden
+        case (.hiddenHover, .clicked):
+            return .openHovered(info: [])
+        case (.hiddenHover, .hovered):
+            return self
+        // openHovered
+        case (.openHovered, .hovered):
+            return self
+        case (.openHovered(let info), .unhovered):
+            return .open(info: info)
+        case (.openHovered(let info), .clicked):
+            if info.isEmpty {
+                return .hidden
+            }
+            return .idle(info: info)
         }
     }
 
@@ -129,12 +177,18 @@ enum AppSizeState {
         case .hidden: return Self.hiddenFrame
         case .idle: return Self.idleFrame
         case .hover: return Self.hoverFrame
+        case .open(_): return Self.openFrame
+        case .hiddenHover: return Self.hiddenHoverFrame
+        case .openHovered: return Self.openHoveredFrame
         }
     }
 
     static let hiddenFrame = NSSize(width: 174, height: notch + 6)
+    static let hiddenHoverFrame = NSSize(width: 190, height: notch + 6 + 6)
     static let idleFrame = NSSize(width: 256, height: notch + 6)
     static let hoverFrame = NSSize(width: 260, height: notch + 4 + 6)
+    static let openFrame = NSSize(width: 260, height: notch * 2 + 6)
+    static let openHoveredFrame = NSSize(width: 260 + 12, height: notch * 2 + 6 + 6)
     static let notch = 32
 }
 
@@ -143,23 +197,26 @@ class ViewModel: ObservableObject {
     @Published var sizeState: AppSizeState = .hidden {
         didSet {
             switch (oldValue, sizeState) {
-            case (_, .hover):
-                self.resizeTo(size: AppSizeState.hoverFrame)
-                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.hover, .idle):
-                self.resizeTo(size: AppSizeState.idleFrame, duration: 0.2)
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-            case (.idle, .hidden):
-                self.resizeTo(size: AppSizeState.hiddenFrame, duration: 0.2)
-            case (.hidden, .idle):
-                self.resizeTo(size: AppSizeState.hiddenFrame, duration: 0.2)
-            case (.hover, .hidden):
-                self.resizeTo(size: AppSizeState.hiddenFrame, duration: 0.2)
+            case (.idle, .hover):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-            case (.idle, .idle):
-                break
-            case (.hidden, .hidden):
-                break
+            case (.hidden, .hiddenHover):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            case (.hiddenHover, .hidden):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            case (.open, .openHovered):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            case (.openHovered, .open):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            case (_, _):
+                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
             }
         }
     }
