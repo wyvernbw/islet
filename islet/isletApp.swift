@@ -40,7 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let rect = {
             var rect = NSRect()
-            rect.size = viewModel.sizeState.asSize()
+            rect.size = AppSizeState.maxExpectedFrame
             return rect.atScreenCenter()
         }
         // Create the borderless window
@@ -183,6 +183,7 @@ enum AppSizeState {
         }
     }
 
+    static let maxExpectedFrame = NSSize(width: 260 + 32, height: notch * 2 + 6 + 6 + 32)
     static let hiddenFrame = NSSize(width: 174, height: notch + 6)
     static let hiddenHoverFrame = NSSize(width: 190, height: notch + 6 + 6)
     static let idleFrame = NSSize(width: 256, height: notch + 6)
@@ -193,47 +194,26 @@ enum AppSizeState {
 }
 
 class ViewModel: ObservableObject {
-    var app: AppDelegate
+    @Published var app: AppDelegate
     @Published var sizeState: AppSizeState = .hidden {
         didSet {
             switch (oldValue, sizeState) {
             case (.hover, .idle):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.idle, .hover):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.hidden, .hiddenHover):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.hiddenHover, .hidden):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.open, .openHovered):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (.openHovered, .open):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
                 NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
             case (_, _):
-                self.resizeTo(size: self.sizeState.asSize(), duration: 0.2)
+                break
             }
         }
-    }
-
-    func resizeTo(
-        size: NSSize, easing: CAMediaTimingFunctionName = .easeOut, duration: TimeInterval = 0.15
-    ) {
-        let frame = {
-            var frame = self.app.window.frame
-            frame.size = size
-            return frame.atScreenCenter()
-        }
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = duration
-            context.timingFunction = CAMediaTimingFunction(name: easing)
-            self.app.window.animator().setFrame(frame(), display: true)
-        })
     }
 
     init(app: AppDelegate) {

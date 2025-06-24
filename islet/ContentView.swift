@@ -11,16 +11,21 @@ struct ContentView: View {
     @ObservedObject var viewModel: ViewModel
     @State private var isHovered = false
 
-    var body: some View {
+    var size: NSSize {
+        return viewModel.sizeState.asSize()
+    }
 
+    var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white).ignoresSafeArea()
+                .fill(Color.black)
+                .frame(width: size.width, height: size.height)
+                .animation(.spring(duration: 0.3, bounce: 0.4), value: size)
             VStack {
             }
 
         }
-        .ignoresSafeArea()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onHover { isHovered in
             self.isHovered = isHovered
 
